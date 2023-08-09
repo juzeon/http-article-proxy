@@ -67,9 +67,9 @@ func NewClientConnection(conn net.Conn, url string, httpClient *resty.Client) *C
 		httpClient:  httpClient,
 		sendBuf:     bytes.Buffer{},
 		sendBufMu:   sync.Mutex{},
-		receiveChan: make(chan []byte, 512),
+		receiveChan: make(chan []byte, 8),
 		closed:      false,
-		closeChan:   make(chan struct{}, 10),
+		closeChan:   make(chan struct{}, 8),
 		closeMu:     sync.Mutex{},
 	}
 }
@@ -80,11 +80,11 @@ func (c *ClientConnection) Handle() {
 	go c.handleClose()
 }
 func (c *ClientConnection) handleRead() {
+	buf := make([]byte, 1024)
 	for {
 		if c.closed {
 			break
 		}
-		buf := make([]byte, 1024)
 		n, err := c.conn.Read(buf)
 		if err != nil {
 			if err != io.EOF {

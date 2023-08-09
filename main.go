@@ -2,6 +2,8 @@ package main
 
 import (
 	"flag"
+	"github.com/pkg/profile"
+	_ "net/http/pprof"
 )
 
 func main() {
@@ -10,6 +12,8 @@ func main() {
 	url := flag.String("url", "", "url to request. Client only")
 	dest := flag.String("dest", "", "destination to forward. Server only")
 	flag.Parse()
+	defer profile.Start(profile.CPUProfile,
+		profile.ProfilePath("./profiles/"+*typ)).Stop()
 	switch *typ {
 	case "server":
 		NewServer(*port, *dest).Serve()

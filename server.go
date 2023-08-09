@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bufio"
 	"bytes"
 	"http-article-proxy/article"
 	"io"
@@ -48,7 +47,7 @@ func (s *Server) httpHandler(writer http.ResponseWriter, request *http.Request) 
 	}
 	request.Body.Close()
 	uuid := request.RequestURI[1:]
-	log.Println("handle request from http: " + uuid)
+	//log.Println("handle request from http: " + uuid)
 	connection, connectionExist := s.ConnectionMap.Load(uuid)
 	if !connectionExist {
 		conn, err := net.Dial("tcp", s.dest)
@@ -85,7 +84,7 @@ func NewServerConnection(conn net.Conn, uuid string) *ServerConnection {
 		readBuf:   bytes.Buffer{},
 		readBufMu: sync.Mutex{},
 		closed:    false,
-		closeChan: make(chan struct{}, 10),
+		closeChan: make(chan struct{}, 8),
 	}
 }
 func (c *ServerConnection) Handle() {
@@ -105,11 +104,11 @@ func (c *ServerConnection) Send(articleContent string) {
 	//log.Println("sent to dest: " + string(buf.Bytes()))
 }
 func (c *ServerConnection) handleRead() {
+	buf := make([]byte, 1024)
 	for {
 		if c.closed {
 			break
 		}
-		buf := make([]byte, 1024)
 		n, err := c.conn.Read(buf)
 		if err != nil {
 			if err != io.EOF {
@@ -121,7 +120,7 @@ func (c *ServerConnection) handleRead() {
 		}
 		//log.Println("read from dest: " + string(buf[:n]))
 		c.readBufMu.Lock()
-		_, err = io.CopyN(bufio.NewWriter(&c.readBuf), bytes.NewReader(buf), int64(n))
+		_, err = c.readBuf.Write(buf[:n])
 		if err != nil {
 			panic(err)
 		}
