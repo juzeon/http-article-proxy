@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"bytes"
 	"http-article-proxy/article"
-	"http-article-proxy/data"
 	"io"
 	"log"
 	"net"
@@ -94,18 +93,11 @@ func (c *ServerConnection) Handle() {
 	go c.handleClose()
 }
 func (c *ServerConnection) Send(articleContent string) {
-	packets, err := article.Decode(articleContent)
+	v, err := article.Decode(articleContent)
 	if err != nil {
 		panic(err)
 	}
-	buf := bytes.Buffer{}
-	for _, packet := range packets {
-		_, err = buf.Write(packet.Data)
-		if err != nil {
-			panic(err)
-		}
-	}
-	_, err = c.conn.Write(buf.Bytes())
+	_, err = c.conn.Write(v)
 	if err != nil {
 		log.Println("cannot send to dest: " + err.Error())
 		c.closeChan <- struct{}{}
@@ -141,7 +133,7 @@ func (c *ServerConnection) GetBodyToReadAndReset() string {
 	defer c.readBufMu.Unlock()
 	v := c.readBuf.Bytes()
 	c.readBuf.Reset()
-	str, err := article.Encode([]data.Packet{{Data: v}})
+	str, err := article.Encode(v)
 	if err != nil {
 		panic(err)
 	}

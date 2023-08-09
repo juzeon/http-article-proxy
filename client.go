@@ -5,7 +5,6 @@ import (
 	"github.com/go-resty/resty/v2"
 	"github.com/google/uuid"
 	"http-article-proxy/article"
-	"http-article-proxy/data"
 	"io"
 	"log"
 	"net"
@@ -35,12 +34,9 @@ type ClientConnection struct {
 
 func NewClient(port int, url string) *Client {
 	return &Client{
-		port: port,
-		url:  url,
-		httpClient: resty.New().SetTimeout(5 * time.Second).SetRetryCount(3).
-			AddRetryCondition(func(response *resty.Response, err error) bool {
-				return response.StatusCode() != 200
-			}),
+		port:       port,
+		url:        url,
+		httpClient: resty.New().SetTimeout(10 * time.Second),
 	}
 }
 func (c *Client) Serve() {
@@ -127,13 +123,13 @@ func (c *ClientConnection) handleTransfer() {
 		articleToSend := ""
 		if len(bytesToSend) > 0 {
 			//log.Println("bytes to send: " + string(bytesToSend))
-			result, err := article.Encode([]data.Packet{{Data: bytesToSend}})
+			result, err := article.Encode(bytesToSend)
 			if err != nil {
 				panic(err)
 			}
 			articleToSend = result
 		}
-		log.Println("article to send: " + articleToSend)
+		//log.Println("article to send: " + articleToSend)
 		resp, err := c.httpClient.R().SetBody(articleToSend).Post(c.url + "/" + c.uuid)
 		if err != nil {
 			log.Println("cannot send http request: " + err.Error())
@@ -146,20 +142,17 @@ func (c *ClientConnection) handleTransfer() {
 			break
 		}
 		articleReceived := resp.String()
-		log.Println("article received: " + articleReceived)
+		//log.Println("article received: " + articleReceived)
 		if articleReceived == "" {
 			continue
 		}
-		packetsReceived, err := article.Decode(articleReceived)
+		bytesReceived, err := article.Decode(articleReceived)
 		if err != nil {
 			panic(err)
 		}
 		c.closeMu.Lock()
 		if !c.closed {
-			for _, packet := range packetsReceived {
-				//log.Println("sending to receiveChan: " + string(packet.Data))
-				c.receiveChan <- packet.Data
-			}
+			c.receiveChan <- bytesReceived
 		}
 		c.closeMu.Unlock()
 	}
